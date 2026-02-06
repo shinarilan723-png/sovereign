@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ACE LEVELING | Sovereign System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;900&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+    
+    <style>
+        :root { --blue: #00d9ff; --red: #ff0055; --bg: #030303; }
+        body { background: var(--bg); color: #fff; font-family: 'Rajdhani', sans-serif; overflow: hidden; height: 100vh; }
+        .font-system { font-family: 'Orbitron', sans-serif; }
+        
+        .workspace { height: calc(100vh - 80px); overflow-y: auto; padding: 24px; padding-bottom: 100px; display: none; }
+        .workspace.active { display: block; animation: pageEnter 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        @keyframes pageEnter {
+            from { opacity: 0; transform: translateX(30px); filter: blur(10px); }
+            to { opacity: 1; transform: translateX(0); filter: blur(0); }
+        }
+
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); border-radius: 28px; }
+        .nav-link { font-size: 20px; transition: 0.3s; color: #444; display: flex; flex-direction: column; align-items: center; }
+        .nav-link.active { color: var(--blue); transform: scale(1.1); text-shadow: 0 0 15px var(--blue); }
+
+        #ai-orb {
+            position: fixed; bottom: 100px; right: 20px; width: 55px; height: 55px;
+            background: radial-gradient(circle, var(--blue) 0%, transparent 70%);
+            border-radius: 50%; z-index: 100; box-shadow: 0 0 20px var(--blue);
+            animation: float 3s infinite ease-in-out; display: flex; align-items: center; justify-content: center;
+        }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+        input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 15px; padding: 12px; color: white; width: 100%; outline: none; }
+        .btn-action { background: var(--blue); color: black; font-weight: 900; border-radius: 15px; width: 100%; padding: 14px; transition: 0.2s; }
+        
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; text-align: center; }
+        .cal-day { padding: 10px 0; border-radius: 10px; font-size: 12px; border: 1px solid rgba(255,255,255,0.05); }
+        .cal-today { background: var(--blue); color: black; font-weight: bold; box-shadow: 0 0 15px var(--blue); }
+        
+        ::-webkit-scrollbar { width: 0px; }
+        .sync-status { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+
+    <div id="ai-orb" onclick="switchTab('tab-ai')"><div class="w-2 h-2 bg-white rounded-full animate-ping"></div></div>
+
+    <section id="tab-home" class="workspace active">
+        <header class="mb-6">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <p id="time-greeting" class="text-gray-500 text-[12px] font-bold tracking-widest uppercase">Initializing...</p>
+                    <p id="rank-greeting" class="text-blue-500 text-[10px] font-system tracking-[0.2em] uppercase">Hunter Status</p>
+                </div>
+                <div class="text-right">
+                    <p id="rank-display" class="text-2xl font-black font-system italic text-blue-400">E-RANK</p>
+                </div>
+            </div>
+
+            <div class="glass p-6 border-l-4 border-blue-500 bg-gradient-to-r from-blue-500/10 to-transparent">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-[9px] font-system text-blue-400 uppercase tracking-widest">System Directive</span>
+                    <span class="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></span>
+                </div>
+                <h2 id="motivation-text" class="text-lg font-bold italic leading-tight text-white mb-2">"Arise. Your limits are only shadows."</h2>
+                <p id="daily-study-hack" class="text-[11px] text-gray-400 font-medium">Tip: Use Pomodoro for deep focus.</p>
+            </div>
+        </header>
+
+        <div class="glass p-6 mb-6">
+            <h3 class="text-xs font-system text-gray-500 uppercase mb-4">Mark_Trajectory</h3>
+            <canvas id="markGraph" height="180"></canvas>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            <div class="glass p-5 text-center">
+                <p class="text-[10px] text-gray-500 uppercase">Weekly Hours</p>
+                <p id="weekly-hrs" class="text-3xl font-black font-system">0</p>
+            </div>
+            <div class="glass p-5 text-center">
+                <p class="text-[10px] text-gray-500 uppercase">Sleep</p>
+                <p id="sleep-stat" class="text-3xl font-black font-system text-green-400">8h</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="tab-records" class="workspace">
+        <h1 class="text-3xl font-black font-system mb-8 text-red-500">RECORDS</h1>
+        
+        <div class="glass p-6 mb-6 border border-blue-900/30">
+            <div class="flex justify-between items-center mb-4">
+                <p class="text-xs font-system text-blue-400">CLOUD_CORE_SYNC</p>
+                <span id="sync-indicator" class="sync-status text-gray-600">Offline</span>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="handleAuthClick()" class="flex-1 py-3 bg-white/5 border border-white/10 rounded-xl text-[10px] font-bold hover:bg-white/10 transition">AUTHORIZE</button>
+                <button onclick="uploadToDrive()" class="flex-1 py-3 bg-blue-600/20 border border-blue-500/30 rounded-xl text-[10px] font-bold text-blue-400 hover:bg-blue-600/40 transition">PUSH TO CLOUD</button>
+            </div>
+        </div>
+
+        <div class="glass p-6 space-y-4 mb-6">
+            <p class="text-xs font-system text-blue-400">SYNC_BIO_METRICS</p>
+            <input type="number" id="in-sleep" placeholder="Sleep Hours">
+            <input type="number" id="in-study" placeholder="Study Hours (Add)">
+            <button onclick="saveMetrics()" class="btn-action">UPDATE SYSTEM</button>
+        </div>
+        <div class="glass p-6 space-y-4">
+            <p class="text-xs font-system text-red-500">NEW_EXAM_ENTRY</p>
+            <input type="text" id="in-sub" placeholder="Subject Name">
+            <input type="number" id="in-mark" placeholder="Score (%)">
+            <button onclick="saveMark()" class="btn-action" style="background:var(--red)">RECORD DATA</button>
+        </div>
+    </section>
+
+    <section id="tab-chrono" class="workspace">
+        <h1 class="text-3xl font-black font-system mb-8 text-purple-500">PLANNER</h1>
+        
+        <div class="glass p-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <p class="text-xs font-system text-blue-400">VOID_CALENDAR</p>
+                <p id="cal-month" class="text-xs font-bold uppercase"></p>
+            </div>
+            <div class="calendar-grid mb-2 text-[10px] text-gray-500 font-bold">
+                <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
+            </div>
+            <div id="calendar-days" class="calendar-grid"></div>
+        </div>
+
+        <div class="glass p-8 text-center mb-6">
+            <div id="timer-display" class="text-6xl font-black font-system mb-6">25:00</div>
+            <div class="flex gap-2">
+                <button onclick="startTimer()" id="timer-ctrl" class="flex-1 btn-action">START</button>
+                <button onclick="resetTimer()" class="glass px-6 py-2 text-xs">RESET</button>
+            </div>
+        </div>
+
+        <div class="glass p-6">
+            <p class="text-xs font-system text-purple-400 mb-4">DAILY_TIMETABLE</p>
+            <div class="flex gap-2 mb-4">
+                <input type="time" id="t-time">
+                <input type="text" id="t-task" placeholder="Task">
+                <button onclick="addSchedule()" class="bg-purple-600 px-4 rounded-xl">+</button>
+            </div>
+            <div id="schedule-list" class="space-y-3"></div>
+        </div>
+    </section>
+
+    <section id="tab-ai" class="workspace">
+        <h1 class="text-3xl font-black font-system mb-8 text-blue-400">SOVEREIGN_AI</h1>
+        <div id="ai-convo" class="glass p-6 h-80 overflow-y-auto font-mono text-xs text-gray-500 space-y-4 mb-4">
+            <p class="text-blue-400">>> I am the System. Ask anything regarding your progress.</p>
+        </div>
+        <div class="flex gap-2">
+            <input type="text" id="ai-input" placeholder="Query the Monarch...">
+            <button onclick="askAI()" class="bg-blue-600 px-6 rounded-xl font-bold">ASK</button>
+        </div>
+    </section>
+
+    <nav class="fixed bottom-0 w-full bg-black/90 backdrop-blur-xl border-t border-white/5 flex justify-around p-4 pb-6 z-50">
+        <button onclick="switchTab('tab-home')" class="nav-link active"><span class="text-xs mb-1">DASH</span>📊</button>
+        <button onclick="switchTab('tab-records')" class="nav-link"><span class="text-xs mb-1">RECS</span>⚔️</button>
+        <button onclick="switchTab('tab-chrono')" class="nav-link"><span class="text-xs mb-1">PLAN</span>⏳</button>
+        <button onclick="switchTab('tab-ai')" class="nav-link"><span class="text-xs mb-1">AI</span>💠</button>
+    </nav>
+
+    <script>
+        // --- GOOGLE DRIVE CONFIG ---
+        // REPLACE THESE WITH YOUR OWN FROM GOOGLE CLOUD CONSOLE
+        const CLIENT_ID = '51238763291-53h2kecj44pgl4ul6q5apvv3rooi3iqs.apps.googleusercontent.com.apps.googleusercontent.com';
+        const API_KEY = 'AQ.Ab8RN6LN8kkx5i5XGxCMx4UZFqBwWOVxjLeOZb7hJvzU9qsTSg';
+        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+
+        // Load State
+        let state = JSON.parse(localStorage.getItem('ace_sov_modular')) || {
+            marks: [60], subjects: ["Initial"], weeklyHours: 0, sleep: 8, schedule: []
+        };
+
+        function switchTab(id) {
+            document.querySelectorAll('.workspace').forEach(w => w.classList.remove('active'));
+            document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            
+            const icons = ['tab-home', 'tab-records', 'tab-chrono', 'tab-ai'];
+            document.querySelectorAll('.nav-link')[icons.indexOf(id)].classList.add('active');
+            document.getElementById('ai-orb').style.display = (id === 'tab-ai') ? 'none' : 'flex';
+        }
+
+        // --- GOOGLE DRIVE LOGIC ---
+        function gapiLoaded() {
+            gapi.load('client', intializeGapiClient);
+        }
+
+        async function intializeGapiClient() {
+            await gapi.client.init({
+                apiKey: API_KEY,
+                discoveryDocs: [DISCOVERY_DOC],
+            });
+            gapiInited = true;
+        }
+
+        function gisLoaded() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: '', // defined later
+            });
+            gisInited = true;
+        }
+
+        function handleAuthClick() {
+            tokenClient.callback = async (resp) => {
+                if (resp.error !== undefined) throw (resp);
+                document.getElementById('sync-indicator').innerText = "Authorized";
+                document.getElementById('sync-indicator').style.color = "#00d9ff";
+            };
+
+            if (gapi.client.getToken() === null) {
+                tokenClient.requestAccessToken({prompt: 'consent'});
+            } else {
+                tokenClient.requestAccessToken({prompt: ''});
+            }
+        }
+
+        async function uploadToDrive() {
+            const fileContent = JSON.stringify(state);
+            const file = new Blob([fileContent], {type: 'application/json'});
+            const metadata = {
+                'name': 'ace_leveling_backup.json',
+                'mimeType': 'application/json'
+            };
+
+            const form = new FormData();
+            form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
+            form.append('file', file);
+
+            try {
+                const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                    method: 'POST',
+                    headers: new Headers({'Authorization': 'Bearer ' + gapi.client.getToken().access_token}),
+                    body: form
+                });
+                const result = await response.json();
+                if(result.id) alert("SYSTEM SYNCED TO MONARCH CLOUD");
+            } catch (err) {
+                alert("SYNC FAILED: Ensure you are authorized.");
+            }
+        }
+
+        // --- PRE-EXISTING LOGIC ---
+        function initMotivation() {
+            const hour = new Date().getHours();
+            const timeGreet = document.getElementById('time-greeting');
+            if(hour < 12) timeGreet.innerText = "Good Morning, Ace";
+            else if(hour < 18) timeGreet.innerText = "Good Afternoon, Ace";
+            else timeGreet.innerText = "Good Evening, Ace";
+
+            const quotes = ["\"Arise. Your limits are only shadows.\"", "\"The system will not wait for the weak.\"", "\"Every hour studied is a level gained.\"", "\"Master your mind, master the dungeon.\"", "\"True power is earned in silence.\""];
+            const hacks = ["Hack: Active recall is your best weapon.", "Tip: Review notes before sleep for 2x retention.", "Hack: Drink water every hour to stay at S-Rank focus.", "Tip: 5-minute break for every 25 minutes of work.", "Logic: Focus on your weakest subject today."];
+
+            document.getElementById('motivation-text').innerText = quotes[Math.floor(Math.random() * quotes.length)];
+            document.getElementById('daily-study-hack').innerText = hacks[Math.floor(Math.random() * hacks.length)];
+        }
+
+        function initCalendar() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth();
+            const today = now.getDate();
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            document.getElementById('cal-month').innerText = `${monthNames[month]} ${year}`;
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const container = document.getElementById('calendar-days');
+            container.innerHTML = "";
+            for (let i = 0; i < firstDay; i++) container.innerHTML += `<div class="cal-day"></div>`;
+            for (let day = 1; day <= daysInMonth; day++) {
+                const isToday = day === today ? 'cal-today' : '';
+                container.innerHTML += `<div class="cal-day ${isToday}">${day}</div>`;
+            }
+        }
+
+        function updateRank() {
+            let rank = "E-RANK";
+            let greet = "Welcome, Low-Ranker";
+            if(state.weeklyHours >= 10) { rank = "C-RANK"; greet = "Steady Progress, Hunter"; }
+            if(state.weeklyHours >= 25) { rank = "A-RANK"; greet = "Elite Presence Detected"; }
+            if(state.weeklyHours >= 45) { rank = "S-RANK"; greet = "Welcome Back, Monarch"; }
+            document.getElementById('rank-display').innerText = rank;
+            document.getElementById('rank-greeting').innerText = greet;
+            document.getElementById('weekly-hrs').innerText = state.weeklyHours;
+            document.getElementById('sleep-stat').innerText = state.sleep + 'h';
+        }
+
+        let timerSeconds = 1500;
+        let timerActive = false;
+        let timerInterval;
+
+        function startTimer() {
+            timerActive = !timerActive;
+            document.getElementById('timer-ctrl').innerText = timerActive ? "PAUSE" : "RESUME";
+            if (timerActive) {
+                timerInterval = setInterval(() => {
+                    timerSeconds--;
+                    const m = Math.floor(timerSeconds/60);
+                    const s = timerSeconds % 60;
+                    document.getElementById('timer-display').innerText = `${m}:${s < 10 ? '0'+s : s}`;
+                    if(timerSeconds <= 0) { clearInterval(timerInterval); resetTimer(); }
+                }, 1000);
+            } else { clearInterval(timerInterval); }
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            timerActive = false;
+            timerSeconds = 1500;
+            document.getElementById('timer-display').innerText = "25:00";
+            document.getElementById('timer-ctrl').innerText = "START";
+        }
+
+        function saveMetrics() {
+            state.sleep = document.getElementById('in-sleep').value || state.sleep;
+            state.weeklyHours += parseFloat(document.getElementById('in-study').value || 0);
+            save();
+            location.reload();
+        }
+
+        function saveMark() {
+            const m = document.getElementById('in-mark').value;
+            const s = document.getElementById('in-sub').value;
+            if(m && s) { state.marks.push(parseInt(m)); state.subjects.push(s); save(); location.reload(); }
+        }
+
+        function addSchedule() {
+            const t = document.getElementById('t-time').value;
+            const task = document.getElementById('t-task').value;
+            if(t && task) { state.schedule.push({t, task}); save(); renderSchedule(); }
+        }
+
+        function renderSchedule() {
+            const list = document.getElementById('schedule-list');
+            list.innerHTML = state.schedule.map(s => `
+                <div class="flex justify-between glass p-4 text-xs">
+                    <span class="text-blue-400 font-system">${s.t}</span>
+                    <span>${s.task}</span>
+                </div>
+            `).join('');
+        }
+
+        function askAI() {
+            const input = document.getElementById('ai-input');
+            const convo = document.getElementById('ai-convo');
+            if(!input.value) return;
+            convo.innerHTML += `<p class="text-white text-right">You: ${input.value}</p>`;
+            setTimeout(() => {
+                convo.innerHTML += `<p class="text-blue-400">>> Based on your ${state.weeklyHours} hours of training, I suggest a 10-minute break before your next subject.</p>`;
+                convo.scrollTop = convo.scrollHeight;
+            }, 600);
+            input.value = '';
+        }
+
+        function save() {
+            localStorage.setItem('ace_sov_modular', JSON.stringify(state));
+        }
+
+        function init() {
+            updateRank();
+            renderSchedule();
+            initCalendar();
+            initMotivation();
+            const ctx = document.getElementById('markGraph').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: state.subjects,
+                    datasets: [{
+                        data: state.marks,
+                        borderColor: '#00d9ff',
+                        backgroundColor: 'rgba(0, 217, 255, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: { plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { color: '#444', font: { size: 9 } } } } }
+            });
+
+            // Trigger Google Loaders
+            gapiLoaded();
+            gisLoaded();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
